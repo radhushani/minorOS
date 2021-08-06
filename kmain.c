@@ -15,4 +15,3 @@
         serial_write(SERIAL_COM1_BASE, c, 7);
     }
     
-    
