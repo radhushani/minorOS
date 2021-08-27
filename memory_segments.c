@@ -8,53 +8,55 @@
 #define SEGMENT_CODE_TYPE 0x9A
 #define SEGMENT_DATA_TYPE 0x92
 
-/*
- * Flags part of `limit_and_flags`.
- * 1100
- * 0 - Available for system use
- * 0 - Long mode
- * 1 - Size (0 for 16-bit, 1 for 32)
- * 1 - Granularity (0 for 1B - 1MB, 1 for 4KB - 4GB)
-*/
-#define SEGMENT_FLAGS_PART 0x0C
+#define SEGMENT_GRANULARITY 0xCF
 
-static struct GDTDescriptor gdt_descriptors[SEGMENT_DESCRIPTOR_COUNT];
+static gdt_entry_t gdt_entries[SEGMENT_DESCRIPTOR_COUNT];
 
-void segments_init_descriptor(int index, unsigned int base_address, unsigned int limit, unsigned char access_byte, unsigned char flags)
+void gdt_set_gate(int index, unsigned int base_address, unsigned int limit, unsigned char access_byte, unsigned char gran)
 {
-	gdt_descriptors[index].base_low = base_address & 0xFFFF;
-	gdt_descriptors[index].base_middle = (base_address >> 16) & 0xFF;
-	gdt_descriptors[index].base_high = (base_address >> 24) & 0xFF;
+	gdt_entries[index].base_low = base_address & 0xFFFF;
+	gdt_entries[index].base_middle = (base_address >> 16) & 0xFF;
+	gdt_entries[index].base_high = (base_address >> 24) & 0xFF;
 
-	gdt_descriptors[index].limit_low = limit & 0xFFFF;
-	gdt_descriptors[index].limit_and_flags = (limit >> 16) & 0xF;
-	gdt_descriptors[index].limit_and_flags |= (flags << 4) & 0xF0;
+	gdt_entries[index].limit_low = limit & 0xFFFF;
+	
+	/*
+   * name | value | size | desc
+   * ---------------------------
+   * P    |     1 |    1 | segment present in memory
+   * DPL  |    pl |    2 | privilege level
+   * S    |     1 |    1 | descriptor type, 0 = system, 1 = code or data
+   * Type |  type |    4 | segment type, how the segment can be accessed
+   * Access = 0x9A privilege 0 code segment, Access = 0x92 for privilege 0 data
+   * segment
+   */
+  	gdt_entries[index].access_byte = access_byte;
+  	
+  	/*
+   * name | value | size | desc
+   * ---------------------------
+   * G    |     1 |    1 | granularity, size of segment unit, 1 = 4kB
+   * D/B  |     1 |    1 | size of operation size, 0 = 16 bits, 1 = 32 bits
+   * L    |     0 |    1 | 1 = 64 bit code
+   * AVL  |     0 |    1 | "available for use by system software"
+   * LIM  |   0xF |    4 | the four highest bits of segment limit
+   * Granularity = 0xCF as far as highest bits of segment limit is 0xFFFFFFFF
+   */
+  	gdt_entries[index].granularity = gran;
 
-	gdt_descriptors[index].access_byte = access_byte;
 }
 
-void segments_install_gdt()
+void init_gdt()
 {
-	gdt_descriptors[0].base_low = 0;
-	gdt_descriptors[0].base_middle = 0;
-	gdt_descriptors[0].base_high = 0;
-	gdt_descriptors[0].limit_low = 0;
-	gdt_descriptors[0].access_byte = 0;
-	gdt_descriptors[0].limit_and_flags = 0;
+	gdt_ptr_t gdt_ptr;
+	gdt_ptr.size = (sizeof(gdt_entry_t) * 3) - 1;
+	gdt_ptr.address = (unsigned int)&gdt_entries;
 
-	// The null descriptor which is never referenced by the processor. 
-        // Certain emulators, like Bochs, will complain about limit exceptions if you do not have one present. 
-        // Some use this descriptor to store a pointer to the GDT itself (to use with the LGDT instruction).
-        // The null descriptor is 8 bytes wide and the pointer is 6 bytes wide so it might just be the perfect place for this.
-        // From:  http://wiki.osdev.org/GDT_Tutorial
-	struct GDT* gdt_ptr = (struct GDT*)gdt_descriptors;
-	gdt_ptr->address = (unsigned int)gdt_descriptors;
-	gdt_ptr->size = (sizeof(struct GDTDescriptor) * SEGMENT_DESCRIPTOR_COUNT) - 1;
+  	gdt_set_gate(0, 0, 0, 0, 0);                // Null segment
+  	
+  	gdt_set_gate(1, SEGMENT_BASE, SEGMENT_LIMIT, SEGMENT_CODE_TYPE, SEGMENT_GRANULARITY); // Kernel Code segment
+  	gdt_set_gate(2, SEGMENT_BASE, SEGMENT_LIMIT, SEGMENT_DATA_TYPE, SEGMENT_GRANULARITY); // Kernel Data segment
 
-	// See http://wiki.osdev.org/GDT_Tutorial
-	segments_init_descriptor(1, SEGMENT_BASE, SEGMENT_LIMIT, SEGMENT_CODE_TYPE, SEGMENT_FLAGS_PART);
-	segments_init_descriptor(2, SEGMENT_BASE, SEGMENT_LIMIT, SEGMENT_DATA_TYPE, SEGMENT_FLAGS_PART);
-
-	segments_load_gdt(*gdt_ptr);
-	segments_load_registers();
+  	gdt_flush((unsigned int)&gdt_ptr);
+	
 }

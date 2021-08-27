@@ -8,9 +8,7 @@
      *  @param data The data to send to the I/O port
      */
     void outb(unsigned short port, unsigned char data);
-
-        /* in file io.h */
-
+    
     /** inb:
      *  Read a byte from an I/O port.
      *

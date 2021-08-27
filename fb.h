@@ -1,6 +1,7 @@
 #ifndef INCLUDE_FRAMEBUFFER_H
 #define INCLUDE_FRAMEBUFFER_H
 
+#pragma once
 #include "io.h"
 
 /* The I/O ports */
@@ -12,19 +13,9 @@
 #define FB_LOW_BYTE_COMMAND 15
 
 /* Frame buffer supported color value */
-#define FB_GREEN 2
-#define FB_DARK_GREY 8
-
-/* Frame buffer base address */
-#define FB_BASE_ADDRESS 0xB8000
-
-/** outb:
- *  Sends the given data to the given I/O port. Defined in io.s
- *
- *  @param port The I/O port to send the data to
- *  @param data The data to send to the I/O port
- */
-void outb(unsigned short port, unsigned char data);
+#define BLACK      0
+#define BLUE       1
+#define LIGHT_GREY 7
 
 /** fb_move_cursor:
  *  Moves the cursor of the framebuffer to the given position
@@ -47,9 +38,16 @@ void fb_write_cell(unsigned int i, char c, unsigned char fg, unsigned char bg);
 /** write:
  *  writes the contents of the buffer buf of length len to the screen
  *
- *  @param buf  Buffer that has contents to be written to screen
- *  @param len  Length of buffer
+ *  @param c  character that needs to be written to screen
+ *  @param i  number of total characters written on the framebuffer
  */
-int fb_write(char *buf, unsigned int len);
+void fb_write(char c, unsigned int i);
+
+/** clear:
+ *  clears the previous content of the buffer and move the cursor back
+ *
+ *  @param i    number of total characters written on the framebuffer
+ */
+void fb_clear(unsigned int i);
 
 #endif /* INCLUDE_IO_H */
