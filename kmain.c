@@ -34,4 +34,3 @@ int kmain(unsigned int ebx, u32int kernel_physical_start, u32int kernel_physical
 
    return 0;
 }
-
